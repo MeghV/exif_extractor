@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Test</title>
+	<script src="//code.jquery.com/jquery-1.11.0.min.js"></script>
+	<script type="text/javascript" src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC1nmqb3b_kEeLCHsyT7pAgG9lpmi3dBM8&sensor=false"></script>
+	<script type="text/javascript" src="js/exif.js"></script>
+
+	<script type="text/javascript">	
+		var coordinates;
+		var geocoded;
+		var file;
+		var formatted_address;
+		$(document).ready(function() {
+			$("input[type='submit']").click(function() {
+				console.log("added");
+
+				EXIF.getData(document.getElementById("fileUploader").files[0], function() {
+					coordinates = this;
+					
+
+					if(coordinates.exifdata.GPSLatitude && coordinates.exifdata.GPSLongitude) {
+						var latitude = convertToDegrees('latitude', coordinates.exifdata.GPSLatitude, coordinates.exifdata.GPSLatitudeRef);
+						var longitude = convertToDegrees('latitude', coordinates.exifdata.GPSLongitude, coordinates.exifdata.GPSLongitudeRef);
+						console.log(latitude + ", " + longitude);
+						reverseGeocode(latitude, longitude);
+					} else {
+						$("#map-canvas").fadeOut(function() {
+							alert("EXIF data doesn't contain latitude and longitude :(");
+						});
+					}
+					
+				});
+					
+			});
+		});
+
+		function convertToDegrees(type, value, direction) {
+		    var degrees = value[0].numerator / value[0].denominator;
+		    var minutes = value[1].numerator / value[1].denominator;
+		    var seconds = value[2].numerator / value[2].denominator;
+		    
+		    var coordinate = degrees + (minutes / 60.0) + (seconds / 3600.0);
+		    if((direction !== 'N' && type === "latitude") || (type === "longitude" && direction !== 'E')) {
+		       coordinate = 0 - coordinate;
+		    } 
+
+		      
+		    return coordinate;
+		}
+
+		function sendToServer(formData) {
+			var sendImage = $.post("test.php", formData);
+
+			sendImage.done(function(data) {
+				console.log("Returned data is: " + data);
+				coordinates = $.parseJSON(data);
+				
+				
+			});
+		}
+
+		function reverseGeocode(latitude, longitude) {
+			var reverseGeocode = $.post("https://maps.googleapis.com/maps/api/geocode/json?latlng=" + latitude + "," + longitude + "&sensor=true&key=AIzaSyC1nmqb3b_kEeLCHsyT7pAgG9lpmi3dBM8");
+				reverseGeocode.done(function(data) {
+					if(data === undefined) {
+						$("#map-canvas").fadeOut(function() {
+							alert("EXIF data doesn't contain latitude and longitude :(");
+						});
+						
+					} else {
+						geocoded = data["results"]; 
+						formatted_address = geocoded[0]["formatted_address"];
+						console.log("Photo was taken at: " + formatted_address);
+						var mapOptions = {
+						    zoom: 18,
+						    center: new google.maps.LatLng(latitude, longitude)
+						  };
+						  var contentString = '<p>' + formatted_address + '</p>';
+						  var map = new google.maps.Map(document.getElementById('map-canvas'),
+						                                mapOptions);
+						  var infowindow = new google.maps.InfoWindow({
+						  	content: contentString
+						  });
+
+						  var myLatLng = new google.maps.LatLng(latitude, longitude);
+						  var beachMarker = new google.maps.Marker({
+						      position: myLatLng,
+						      map: map,
+						  });
+
+						$("#map-canvas").fadeIn(function() {
+							infowindow.open(map, beachMarker);
+						});
+					}
+				});
+			
+		}
+
+
+	</script>
+	<style type="text/css">
+		#map-canvas {
+			width: 600px;
+			height: 600px;
+			margin: 0 auto;
+			display: none;
+		}
+
+	</style>
+</head>
+<body>
+
+		<label for="file">Filename:</label>
+		<input id="fileUploader" type="file" name="file" id="file" accept="image/*"><br>
+		<input type="submit" value="Submit">
+
+		<div id="map-canvas"></div>
+
+</body>
+</html>
