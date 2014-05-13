@@ -1,100 +1,121 @@
 <!DOCTYPE html>
-<html class="no-js">
-    <head>
-        <meta charset="utf-8">
-        <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
-        <title></title>
-        <meta name="description" content="">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-
-        <link rel="stylesheet" href="css/bootstrap.min.css">
-        <style>
-            body {
-                padding-top: 50px;
-                padding-bottom: 20px;
-            }
-        </style>
-        <link rel="stylesheet" href="css/bootstrap-theme.min.css">
-        <link rel="stylesheet" href="css/main.css">
-
-        <script src="js/vendor/modernizr-2.6.2-respond-1.1.0.min.js"></script>
-    </head>
-    <body>
 <html>
- 
-<script language="Javascript">
-function fileUpload(form, action_url, div_id) {
-    // Create the iframe...
-    var iframe = document.createElement("iframe");
-    iframe.setAttribute("id", "upload_iframe");
-    iframe.setAttribute("name", "upload_iframe");
-    iframe.setAttribute("width", "0");
-    iframe.setAttribute("height", "0");
-    iframe.setAttribute("border", "0");
-    iframe.setAttribute("style", "width: 0; height: 0; border: none;");
- 
-    // Add to document...
-    form.parentNode.appendChild(iframe);
-    window.frames['upload_iframe'].name = "upload_iframe";
- 
-    iframeId = document.getElementById("upload_iframe");
- 
-    // Add event...
-    var eventHandler = function () {
- 
-            if (iframeId.detachEvent) iframeId.detachEvent("onload", eventHandler);
-            else iframeId.removeEventListener("load", eventHandler, false);
- 
-            // Message from server...
-            if (iframeId.contentDocument) {
-                content = iframeId.contentDocument.body.innerHTML;
-            } else if (iframeId.contentWindow) {
-                content = iframeId.contentWindow.document.body.innerHTML;
-            } else if (iframeId.document) {
-                content = iframeId.document.body.innerHTML;
-            }
- 
-            document.getElementById(div_id).innerHTML = content;
- 
-            // Del the iframe...
-            setTimeout('iframeId.parentNode.removeChild(iframeId)', 250);
-        }
- 
-    if (iframeId.addEventListener) iframeId.addEventListener("load", eventHandler, true);
-    if (iframeId.attachEvent) iframeId.attachEvent("onload", eventHandler);
- 
-    // Set properties of form...
-    form.setAttribute("target", "upload_iframe");
-    form.setAttribute("action", action_url);
-    form.setAttribute("method", "post");
-    form.setAttribute("enctype", "multipart/form-data");
-    form.setAttribute("encoding", "multipart/form-data");
- 
-    // Submit the form...
-    form.submit();
- 
-    document.getElementById(div_id).innerHTML = "Uploading...";
-}
-</script>
- 
-<!-- index.php could be any script server-side for receive uploads. -->
-<form>
-<input type="file" name="datafile" /></br>
-<input type="button" value="upload"
-        onClick="fileUpload(this.form,'index.php','upload'); return false;" >
-<div id="upload"></div>
-</form>
+<head>
+	<title>Test</title>
+	<script src="//code.jquery.com/jquery-1.11.0.min.js"></script>
+	<script type="text/javascript" src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC1nmqb3b_kEeLCHsyT7pAgG9lpmi3dBM8&sensor=false"></script>
+	<script type="text/javascript" src="js/exif.js"></script>
 
-      <hr>
+	<script type="text/javascript">	
+		var coordinates;
+		var geocoded;
+		var file;
+		var formatted_address;
+		$(document).ready(function() {
+			$("input[type='submit']").click(function() {
+				console.log("added");
 
-      <footer>
-        <p>&copy; Company 2014</p>
-      </footer>
-    </div> <!-- /container -->        <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
-        <script>window.jQuery || document.write('<script src="js/vendor/jquery-1.11.0.min.js"><\/script>')</script>
+				EXIF.getData(document.getElementById("fileUploader").files[0], function() {
+					coordinates = this;
+					
 
-        <script src="js/vendor/bootstrap.min.js"></script>
+					if(coordinates.exifdata.GPSLatitude && coordinates.exifdata.GPSLongitude) {
+						var latitude = convertToDegrees('latitude', coordinates.exifdata.GPSLatitude, coordinates.exifdata.GPSLatitudeRef);
+						var longitude = convertToDegrees('latitude', coordinates.exifdata.GPSLongitude, coordinates.exifdata.GPSLongitudeRef);
+						console.log(latitude + ", " + longitude);
+						reverseGeocode(latitude, longitude);
+					} else {
+						$("#map-canvas").fadeOut(function() {
+							alert("EXIF data doesn't contain latitude and longitude :(");
+						});
+					}
+					
+				});
+					
+			});
+		});
 
-        <script src="js/main.js"></script>
-    </body>
+		function convertToDegrees(type, value, direction) {
+		    var degrees = value[0].numerator / value[0].denominator;
+		    var minutes = value[1].numerator / value[1].denominator;
+		    var seconds = value[2].numerator / value[2].denominator;
+		    
+		    var coordinate = degrees + (minutes / 60.0) + (seconds / 3600.0);
+		    if((direction !== 'N' && type === "latitude") || (type === "longitude" && direction !== 'E')) {
+		       coordinate = 0 - coordinate;
+		    } 
+
+		      
+		    return coordinate;
+		}
+
+		function sendToServer(formData) {
+			var sendImage = $.post("test.php", formData);
+
+			sendImage.done(function(data) {
+				console.log("Returned data is: " + data);
+				coordinates = $.parseJSON(data);
+				
+				
+			});
+		}
+
+		function reverseGeocode(latitude, longitude) {
+			var reverseGeocode = $.post("https://maps.googleapis.com/maps/api/geocode/json?latlng=" + latitude + "," + longitude + "&sensor=true&key=AIzaSyC1nmqb3b_kEeLCHsyT7pAgG9lpmi3dBM8");
+				reverseGeocode.done(function(data) {
+					if(data === undefined) {
+						$("#map-canvas").fadeOut(function() {
+							alert("EXIF data doesn't contain latitude and longitude :(");
+						});
+						
+					} else {
+						geocoded = data["results"]; 
+						formatted_address = geocoded[0]["formatted_address"];
+						console.log("Photo was taken at: " + formatted_address);
+						var mapOptions = {
+						    zoom: 18,
+						    center: new google.maps.LatLng(latitude, longitude)
+						  };
+						  var contentString = '<p>' + formatted_address + '</p>';
+						  var map = new google.maps.Map(document.getElementById('map-canvas'),
+						                                mapOptions);
+						  var infowindow = new google.maps.InfoWindow({
+						  	content: contentString
+						  });
+
+						  var myLatLng = new google.maps.LatLng(latitude, longitude);
+						  var beachMarker = new google.maps.Marker({
+						      position: myLatLng,
+						      map: map,
+						  });
+
+						$("#map-canvas").fadeIn(function() {
+							infowindow.open(map, beachMarker);
+						});
+					}
+				});
+			
+		}
+
+
+	</script>
+	<style type="text/css">
+		#map-canvas {
+			width: 600px;
+			height: 600px;
+			margin: 0 auto;
+			display: none;
+		}
+
+	</style>
+</head>
+<body>
+
+		<label for="file">Filename:</label>
+		<input id="fileUploader" type="file" name="file" id="file" accept="image/*"><br>
+		<input type="submit" value="Submit">
+
+		<div id="map-canvas"></div>
+
+</body>
 </html>
